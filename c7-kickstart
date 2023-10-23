@@ -1,0 +1,95 @@
+# C7 Desktop beta kickstart
+auth --enableshadow --passalgo=sha512
+
+reboot --eject
+install
+text
+cmdline
+firstboot --disable
+keyboard --vckeymap=gb --xlayouts='gb'
+lang en_GB.UTF-8
+
+network  --bootproto=dhcp --noipv6 --activate
+rootpw --iscrypted <encrypted.password.here>
+timezone Europe/London
+xconfig  --startxonboot
+
+user --name=<user.name> --homedir=/home/<user.name> --groups=wheel --password=<encrypted.password.here> --iscrypted
+
+services --enabled=NetworkManager,sshd
+eula --agreed
+
+zerombr
+ignoredisk --only-use=sda
+clearpart --all --initlabel --drives=sda
+bootloader --append=" crashkernel=auto" --location=mbr --boot-drive=sda
+part /boot --fstype ext4 --size=500 --ondisk=sda
+part pv.01 --size=30720 --grow --ondisk=sda
+volgroup VolGroup --pesize=32768 pv.01
+logvol / --vgname=VolGroup --fstype ext4 --size=102400 --name=lv_root
+logvol /local --vgname=VolGroup --fstype ext4 --size=16384 --grow --name=lv_local
+logvol swap --vgname=VolGroup --fstype swap --name=lv_swap --hibernation --recommended
+
+
+
+%packages
+@base
+@compat-libraries
+@core
+@desktop-debugging
+@development
+@dial-up
+@directory-client
+@fonts
+@gnome-apps
+@gnome-desktop
+@guest-agents
+@guest-desktop-agents
+@input-methods
+@internet-applications
+@internet-browser
+@java-platform
+@multimedia
+@network-file-system-client
+@networkmanager-submodules
+@office-suite
+@print-client
+@security-tools
+@x11
+kexec-tools
+emacs
+iptables-services
+git
+vim
+screen
+mlocate
+bind-utils
+traceroute
+mailx
+wget
+scl-utils
+
+%end
+
+%addon com_redhat_kdump --enable --reserve-mb='auto'
+
+%end
+
+%post --log=/root/ks-post.log
+cd /root
+/usr/bin/yum -y update
+/usr/bin/yum -y install fail2ban puppet python
+/usr/bin/systemctl enable fail2ban.service
+/usr/bin/systemctl enable puppet.service
+wget "http://ip/tables/file/here/iptables"
+cp /root/iptables /etc/sysconfig/iptables
+/usr/bin/chmod 644 /etc/sysconfig/iptables
+/usr/bin/systemctl disable firewalld.service
+/usr/bin/systemctl mask firewalld.service
+/usr/bin/systemctl enable iptables.service
+/usr/bin/systemctl start iptables.service
+/usr/bin/systemctl daemon-reload
+echo -e "    server = <server.name.nere>" >> /etc/puppet/puppet.conf
+echo -e "sshusers:x:1001:<names.here>," >> /etc/group
+
+%end
